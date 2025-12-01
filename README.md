@@ -16,7 +16,7 @@ A DIY Timer Plug project that allows you to [Control the switching of plug  via 
 
 ## 🔌 Circuit Diagram
 You can find the wiring connections in the `connections` folder.
-![Schematic](hardware/schematic.png)
+![Schematic](timerplug.png)
 
 ## 💻 Software & Libraries
 This project uses the following libraries:
@@ -32,3 +32,4 @@ This project uses the following libraries:
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
