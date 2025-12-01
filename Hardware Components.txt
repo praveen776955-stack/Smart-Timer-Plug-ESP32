@@ -1,0 +1,17 @@
+## 🛠️ Hardware Components (Bill of Materials)
+
+| Component | Specification | Quantity |
+| :--- | :--- | :--- |
+| **Microcontroller** | ESP32 Development Board (e.g., ESP-WROOM-32) | 1 |
+| **Battery** | Lithium-Ion Battery (e.g., 18650 Cell) | 1 |
+| **Power Regulation** | Variable DC-DC Converter (Buck Converter / Regulator) | 1 |
+| **Relay Module** | 1-Channel Relay (5V/3.3V Logic, 10A/250V AC Rating) | 1 |
+| **AC Input** | 3-Pin Power Plug (Male) | 1 |
+| **AC Output** | 5-Pin Universal Power Socket (Female) | 1 |
+| **Prototyping** | Breadboard (Optional) | 1 |
+| **Connections** | Jumper Wires (Male-to-Male & Male-to-Female) | Set |
+
+### ⚠️ Important Safety Note
+This project involves **High Voltage AC Mains (110V/220V)**.
+* Exercise extreme caution when wiring the 3-Pin Plug and 5-Pin Socket to the Relay.
+* Ensure the Low Voltage components (ESP32, Battery) are properly isolated from the High Voltage AC lines.

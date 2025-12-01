@@ -1,0 +1,55 @@
+# 🔌 Full Wiring Diagram & Connections
+
+### ⚠️ CRITICAL SAFETY WARNING
+**DANGER: High Voltage Project (110V/220V AC)**
+* This project modifies mains electricity.
+* **NEVER** touch the Relay, AC Plug, or AC Socket connections while the device is plugged into the wall.
+* **ALWAYS** verify connections with a multimeter before plugging it in.
+* Ensure the Li-Ion battery and ESP32 are physically isolated from the AC mains wires to prevent short circuits.
+
+---
+
+### 1. Power Supply System
+*Goal: Convert Li-Ion Battery voltage (3.7V) up to 5V to power the ESP32 and Relay coil.*
+
+| From Component | To Component | Connection Detail |
+| :--- | :--- | :--- |
+| **Li-Ion Battery (+)** | **Variable Power Module** | Input (+) |
+| **Li-Ion Battery (-)** | **Variable Power Module** | Input (-) |
+| **Variable Power Module** | **(Self Check)** | *Tune potentiometer until Output is exactly 5.0V* |
+| **Variable Power Module** | **ESP32 Board** | Output (+) $\rightarrow$ **VIN** (5V Pin) |
+| **Variable Power Module** | **ESP32 Board** | Output (-) $\rightarrow$ **GND** |
+| **Variable Power Module** | **Relay Module** | Output (+) $\rightarrow$ **VCC / DC+** |
+| **Variable Power Module** | **Relay Module** | Output (-) $\rightarrow$ **GND / DC-** |
+
+---
+
+### 2. Logic Control System
+*Goal: The ESP32 controls the Relay using GPIO 16.*
+
+| From ESP32 Pin | To Relay Module Pin | Function |
+| :--- | :--- | :--- |
+| **GPIO 16** (Labelled **RX2**) | **IN / Signal** | Sends High/Low signal to switch relay |
+| **GND** | **GND / DC-** | Common Ground (Must be connected) |
+
+*> Note: On most ESP32 boards, GPIO 16 is physically labeled as "RX2".*
+
+---
+
+### 3. High Voltage AC Mains System
+*Goal: Interrupt the "Live" wire of the plug to turn the socket On/Off.*
+
+| Wire Type | From Component | To Component |
+| :--- | :--- | :--- |
+| **Live Wire** (Red/Brown) | **3-Pin Plug (Male)** | **Relay Module: COM (Common)** |
+| **Live Wire** (Red/Brown) | **Relay Module: NO (Normally Open)** | **5-Pin Socket (Female): L (Line)** |
+| **Neutral Wire** (Black/Blue)| **3-Pin Plug (Male)** | **5-Pin Socket (Female): N (Neutral)** |
+| **Earth Wire** (Green/Yellow)| **3-Pin Plug (Male)** | **5-Pin Socket (Female): E (Earth)** |
+
+---
+
+### Summary of Operation
+1.  **Power:** The Battery powers the Booster module, which sends 5V to the ESP32 and Relay.
+2.  **Logic:** The ESP32 sends a signal via **Pin 16 (RX2)** to the Relay.
+3.  **Switching:** When the Relay activates, it connects the `COM` pin to the `NO` pin.
+4.  **Result:** The AC circuit completes, and the device plugged into your 5-Pin socket turns ON.

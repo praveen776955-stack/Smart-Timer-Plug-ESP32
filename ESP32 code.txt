@@ -1,0 +1,202 @@
+#include <dummy.h>
+
+/* 
+   TimerPlug_WROOM32_Final.ino
+   Author: ChatGPT (for Praveen)
+   Description:
+   ESP32 timer plug with accurate cutoff and manual ON/OFF controls.
+   Wiring: Plug Live -> Relay COM, Socket Live -> Relay NO, Neutral/Earth direct.
+*/
+
+#include <WiFi.h>
+#include <WebServer.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+
+// ====== USER SETTINGS ======
+const char* WIFI_SSID = "Iot wifi";      // <<< change this
+const char* WIFI_PASS = "12345678";  // <<< change this
+const bool RELAY_ACTIVE_LOW = true;            // true for most relay modules
+const int RELAY_PIN = 16;                      // GPIO for relay IN
+const int LED_PIN = 2;                         // onboard LED (for visual status)
+
+// ====== GLOBALS ======
+WebServer server(80);
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", 19800); // +5:30 IST offset
+
+bool timerRunning = false;
+unsigned long startMillis = 0;
+unsigned long durationMs = 0;
+unsigned long endMillis = 0;
+
+// ====== FUNCTIONS ======
+void relayWrite(bool on) {
+  if (RELAY_ACTIVE_LOW)
+    digitalWrite(RELAY_PIN, on ? LOW : HIGH);
+  else
+    digitalWrite(RELAY_PIN, on ? HIGH : LOW);
+  digitalWrite(LED_PIN, on ? HIGH : LOW);
+  Serial.printf("[Relay] %s\n", on ? "ON" : "OFF");
+}
+
+void forceRelayOff() {
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+  if (RELAY_ACTIVE_LOW)
+    digitalWrite(RELAY_PIN, HIGH);
+  else
+    digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(LED_PIN, LOW);
+  delay(20);
+  Serial.println("Relay forced OFF at boot");
+}
+
+void startTimerMs(unsigned long ms) {
+  durationMs = ms;
+  startMillis = millis();
+  endMillis = startMillis + durationMs;
+  timerRunning = true;
+  relayWrite(true);
+  Serial.printf("[Timer] Started for %lu ms (%.2f sec)\n", durationMs, durationMs / 1000.0);
+}
+
+void stopTimer() {
+  relayWrite(false);
+  timerRunning = false;
+  durationMs = 0;
+  endMillis = 0;
+  Serial.println("[Timer] Stopped");
+}
+
+String statusJson() {
+  String s = "{";
+  s += "\"running\":"; s += timerRunning ? "true" : "false";
+  s += ",\"elapsed\":"; s += timerRunning ? String((millis() - startMillis) / 1000) : "0";
+  s += ",\"remaining\":";
+  if (timerRunning) {
+    unsigned long elapsed = millis() - startMillis;
+    s += String((durationMs > elapsed) ? (durationMs - elapsed) / 1000 : 0);
+  } else s += "0";
+  s += "}";
+  return s;
+}
+
+// ====== WEB HANDLERS ======
+void handleRoot() {
+  String html = R"rawliteral(
+<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timer Plug</title>
+<style>
+body{font-family:Arial;background:#f4f4f4;text-align:center;margin-top:40px;}
+.card{background:white;padding:20px;border-radius:12px;max-width:400px;margin:auto;box-shadow:0 2px 10px rgba(0,0,0,0.2);}
+button{padding:10px 20px;margin:8px;border:none;border-radius:8px;cursor:pointer;font-size:16px;}
+.on{background:#16a34a;color:white;}
+.off{background:#ef4444;color:white;}
+.timer{background:#2563eb;color:white;}
+input,select{padding:6px;margin:5px;font-size:16px;}
+</style>
+</head><body>
+<div class='card'>
+<h2>Timer Plug Control</h2>
+<p><b>Status:</b> <span id='state'>?</span></p>
+<button class='on' onclick='onPlug()'>ON</button>
+<button class='off' onclick='offPlug()'>OFF</button><br>
+<input id='val' type='number' value='10' min='1'>
+<select id='unit'><option value='s'>Seconds</option><option value='m'>Minutes</option><option value='h'>Hours</option></select>
+<button class='timer' onclick='setTimer()'>Start Timer</button>
+<p><b>Elapsed:</b> <span id='elapsed'>0</span> s</p>
+<p><b>Remaining:</b> <span id='remaining'>0</span> s</p>
+</div>
+<script>
+async function status(){
+  let r = await fetch('/status'); let j = await r.json();
+  document.getElementById('state').innerText = j.running ? 'ON' : 'OFF';
+  document.getElementById('elapsed').innerText = j.elapsed;
+  document.getElementById('remaining').innerText = j.remaining;
+  setTimeout(status, 1000);
+}
+async function onPlug(){await fetch('/on');}
+async function offPlug(){await fetch('/off');}
+async function setTimer(){
+  let v=parseInt(document.getElementById('val').value);let u=document.getElementById('unit').value;
+  let s=v;if(u==='m')s=v*60;if(u==='h')s=v*3600;
+  await fetch('/set?sec='+s);
+}
+status();
+</script>
+</body></html>
+)rawliteral";
+  server.send(200, "text/html", html);
+}
+
+void handleSet() {
+  if (!server.hasArg("sec")) { server.send(400, "text/plain", "Missing sec"); return; }
+  unsigned long s = server.arg("sec").toInt();
+  if (s < 1) s = 1;
+  startTimerMs(s * 1000UL);
+  server.send(200, "text/plain", "Timer started");
+}
+
+void handleOn() {
+  stopTimer();
+  relayWrite(true);
+  server.send(200, "text/plain", "ON");
+}
+
+void handleOff() {
+  stopTimer();
+  server.send(200, "text/plain", "OFF");
+}
+
+void handleStatus() {
+  server.send(200, "application/json", statusJson());
+}
+
+// ====== SETUP ======
+void setup() {
+  Serial.begin(115200);
+  forceRelayOff();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.print("Connecting WiFi");
+  unsigned long t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) {
+    delay(300); Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi connected: " + WiFi.localIP().toString());
+  } else {
+    Serial.println("\nWiFi failed, starting AP...");
+    WiFi.softAP("TimerPlug-AP", "timerplug");
+    Serial.println("AP IP: 192.168.4.1");
+  }
+
+  timeClient.begin();
+  timeClient.update();
+
+  server.on("/", handleRoot);
+  server.on("/set", handleSet);
+  server.on("/on", handleOn);
+  server.on("/off", handleOff);
+  server.on("/status", handleStatus);
+  server.begin();
+  Serial.println("HTTP server started");
+}
+
+// ====== LOOP ======
+void loop() {
+  server.handleClient();
+
+  // precise timer cutoff
+  if (timerRunning) {
+    unsigned long now = millis();
+    if ((long)(now - endMillis) >= 0) {
+      timerRunning = false;
+      relayWrite(false);
+      Serial.println("[Timer] Expired -> Relay OFF immediately");
+    }
+  }
+}
