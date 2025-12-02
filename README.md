@@ -1,4 +1,4 @@
-# WiFi Smart Timer Plug 🔌 (Web Controlled)
+# Smart Timer Plug 🔌 (Web Controlled)
 
 A DIY Smart Plug powered by an ESP32 that hosts its own web interface. You can control the socket and set timers directly from any web browser (Phone/Laptop) connected to the same WiFi network.
 
@@ -35,5 +35,6 @@ A DIY Smart Plug powered by an ESP32 that hosts its own web interface. You can c
 * **WiFi.h** (Standard)
 * **WebServer.h** (Standard)
 * **NTPClient** (For accurate timekeeping over WiFi)
+
 
 
